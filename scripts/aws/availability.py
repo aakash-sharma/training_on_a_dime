@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 
-
+MAX_INSTANCES = 3
 instances = {}
 instance_types = {
     ("v100", 1): "p3.2xlarge",
@@ -21,9 +21,10 @@ def signal_handler(sig, frame):
     global instances
     # Clean up all instances when program is interrupted.
     for (zone, gpu_type, num_gpus) in instances:
-        [instance_id, _] = instances[(zone, gpu_type, num_gpus)]
-        if instance_id is not None:
-            delete_spot_instance(zone, instance_id)
+        for instance in instances[(zone, gpu_type, num_gpus)]:
+            instance_id = instance[0]
+            if instance_id is not None:
+                delete_spot_instance(zone, instance_id)
     sys.exit(0)
 
 def launch_spot_instance(zone, gpu_type, num_gpus, instance_id):
@@ -96,22 +97,29 @@ def main(args):
     for zone in args.zones:
         for gpu_type in args.gpu_types:
             for num_gpus in args.all_num_gpus:
-                instances[(zone, gpu_type, num_gpus)] = [None, False]
+                instance = [None, False]
+                instances[(zone, gpu_type, num_gpus)] = [instance] * MAX_INSTANCES
+
+    print(instances)
 
     while True:
         # Spin in a loop; try to launch spot instances of particular type if
         # not running already. Check on status of instances, and update to
         # "not running" as needed.
         for (zone, gpu_type, num_gpus) in instances:
-            [instance_id, running] = instances[(zone, gpu_type, num_gpus)]
-            if instance_id is not None:
-                running = \
-                    monitor_spot_instance(zone, instance_id)
-            if not running:
-                [instance_id, running] = \
-                    launch_spot_instance(zone, gpu_type, num_gpus, instance_id)
-            instances[(zone, gpu_type, num_gpus)] = [instance_id, running]
-        time.sleep(600)
+            i = 0
+            for instance in instances[(zone, gpu_type, num_gpus)]:
+                instance_id, running = instance[0], instance[1]
+                if instance_id is not None:
+                    running = \
+                        monitor_spot_instance(zone, instance_id)
+                if not running:
+                    [instance_id, running] = \
+                        launch_spot_instance(zone, gpu_type, num_gpus, instance_id)
+                instances[(zone, gpu_type, num_gpus)][i] = [instance_id, running]
+                i += 1
+    
+        time.sleep(10)
 
 
 if __name__ == '__main__':

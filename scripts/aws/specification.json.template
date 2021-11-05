@@ -1,5 +1,5 @@
 {
-  "ImageId": "ami-0b5768dbb07139929",
+  "ImageId": "ami-01cc34ab2709337aa",
   "InstanceType": "%s",
   "Placement": {
     "AvailabilityZone": "%s"
