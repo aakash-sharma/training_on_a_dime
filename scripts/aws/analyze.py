@@ -4,6 +4,7 @@ from availability import instance_types
 
 TL = []
 all_y_axis = {}
+lifespan_buckets = {}
 
 def get_timeline(logs2):
 
@@ -36,6 +37,30 @@ def instances_over_time(logs, logs2):
     
     print(all_y_axis)
 
+def avg_lifespan(logs):
+
+    for instance in instance_types:
+        lifespan_buckets[instance] = []
+
+    end_time = datetime.strptime(TL[-1], '%Y-%m-%dT%H:%M:%S.000Z')
+
+    for instance_id in logs:
+        instance = (logs[instance_id][0][0], logs[instance_id][0][1])
+        st_time = datetime.strptime(logs[instance_id][1], '%Y-%m-%dT%H:%M:%S.000Z')
+
+        lifespan = 0
+
+        if logs[instance_id][2] != -1:
+            lifespan = datetime.strptime(logs[instance_id][2], '%Y-%m-%dT%H:%M:%S.000Z') - st_time
+        else:
+            lifespan = end_time - st_time
+
+
+        lifespan_buckets[instance].append(lifespan.total_seconds())
+       
+    print(lifespan_buckets) 
+    
+
         
 
 def main():
@@ -47,6 +72,7 @@ def main():
 
     get_timeline(logs2)
     instances_over_time(logs, logs2)
+    avg_lifespan(logs)
 
     
 
