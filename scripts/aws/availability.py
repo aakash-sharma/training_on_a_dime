@@ -17,6 +17,8 @@ instance_types = {
     ("k80", 16): "p2.16xlarge",
 }
 
+logs = {}
+
 def signal_handler(sig, frame):
     global instances
     # Clean up all instances when program is interrupted.
@@ -45,14 +47,20 @@ def launch_spot_instance(zone, gpu_type, num_gpus, instance_id):
         command = """aws ec2 describe-spot-instance-requests --spot-instance-request-id %s""" % (
             spot_instance_request_id)
         time.sleep(30)
+        print(spot_instance_request_id)
         output = subprocess.check_output(command, shell=True).decode()
         return_obj = json.loads(output)
         instance_id = return_obj["SpotInstanceRequests"][0]["InstanceId"]
-        print("[%s] Created instance %s with %d GPU(s) of type %s in zone %s" % (
-            datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+        print(instance_id)
+        aws_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        print("[%s] Created instance %s with %d GPU(s) of type %s in zone %s" % (aws_time,
             instance_id, num_gpus, gpu_type, zone))
+
+        logs[instance_id] = [gpu_type, num_gpus, aws_time, -1]
+        print(logs)
         return [instance_id, True]
     except Exception as e:
+        print(e)
         pass
     if spot_instance_request_id is not None:
         command = """aws ec2 cancel-spot-instance-requests --spot-instance-request-ids %s""" % (
@@ -75,8 +83,14 @@ def monitor_spot_instance(zone, instance_id):
             return True
     except Exception as e:
         pass
-    print("[%s] Instance %s not running in zone %s" % (
-        datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'), instance_id, zone))
+    aws_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z')
+    print("[%s] Instance %s not running in zone %s" % (aws_time, instance_id, zone))
+   
+    if instance_id in logs: 
+        logs[instance_id][-1] = aws_time
+
+    print(logs)
+    
     # Delete spot instance in case it exists.
     delete_spot_instance(zone, instance_id)
     return False
@@ -118,8 +132,9 @@ def main(args):
                         launch_spot_instance(zone, gpu_type, num_gpus, instance_id)
                 instances[(zone, gpu_type, num_gpus)][i] = [instance_id, running]
                 i += 1
-    
+
         time.sleep(10)
+        print("Trying again")
 
 
 if __name__ == '__main__':
