@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 
-MAX_INSTANCES = 3
+MAX_INSTANCES = 10
 instances = {}
 instance_types = {
     ("v100", 1): "p3.2xlarge",
@@ -18,10 +18,13 @@ instance_types = {
 }
 
 logs = {}
+logs2 = {}
 
 def persist_dict():
     with open('dict_snapshot', 'w') as dict_snapshot:
         dict_snapshot.write(json.dumps(logs))
+    with open('dict_snapshot2', 'w') as dict_snapshot2:
+        dict_snapshot2.write(json.dumps(logs2))
 
 def signal_handler(sig, frame):
     global instances
@@ -32,6 +35,7 @@ def signal_handler(sig, frame):
             if instance_id is not None:
                 delete_spot_instance(zone, instance_id)
 
+    logs2[datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z')] = [None, 0]
     persist_dict()
     sys.exit(0)
 
@@ -62,7 +66,8 @@ def launch_spot_instance(zone, gpu_type, num_gpus, instance_id):
         print("[%s] Created instance %s with %d GPU(s) of type %s in zone %s" % (aws_time,
             instance_id, num_gpus, gpu_type, zone))
 
-        logs[instance_id] = [gpu_type, num_gpus, aws_time, -1]
+        logs[instance_id] = [(gpu_type, num_gpus), aws_time, -1]
+        logs2[aws_time] = [instance_id, 1]
         persist_dict()
         print(logs)
         return [instance_id, True]
@@ -95,6 +100,7 @@ def monitor_spot_instance(zone, instance_id):
    
     if instance_id in logs: 
         logs[instance_id][-1] = aws_time
+        logs2[aws_time] = [instance_id, -1]
         persist_dict()
 
     print(logs)
@@ -123,6 +129,8 @@ def main(args):
                 instances[(zone, gpu_type, num_gpus)] = [instance] * MAX_INSTANCES
 
     print(instances)
+
+    logs2[datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z')] = [None, 0]
 
     while True:
         # Spin in a loop; try to launch spot instances of particular type if
