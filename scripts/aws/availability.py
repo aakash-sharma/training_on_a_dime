@@ -19,6 +19,10 @@ instance_types = {
 
 logs = {}
 
+def persist_dict():
+    with open('dict_snapshot', 'w') as dict_snapshot:
+        dict_snapshot.write(json.dumps(logs))
+
 def signal_handler(sig, frame):
     global instances
     # Clean up all instances when program is interrupted.
@@ -27,6 +31,8 @@ def signal_handler(sig, frame):
             instance_id = instance[0]
             if instance_id is not None:
                 delete_spot_instance(zone, instance_id)
+
+    persist_dict()
     sys.exit(0)
 
 def launch_spot_instance(zone, gpu_type, num_gpus, instance_id):
@@ -57,6 +63,7 @@ def launch_spot_instance(zone, gpu_type, num_gpus, instance_id):
             instance_id, num_gpus, gpu_type, zone))
 
         logs[instance_id] = [gpu_type, num_gpus, aws_time, -1]
+        persist_dict()
         print(logs)
         return [instance_id, True]
     except Exception as e:
@@ -88,6 +95,7 @@ def monitor_spot_instance(zone, instance_id):
    
     if instance_id in logs: 
         logs[instance_id][-1] = aws_time
+        persist_dict()
 
     print(logs)
     
