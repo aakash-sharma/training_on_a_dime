@@ -66,8 +66,8 @@ def launch_spot_instance(zone, gpu_type, num_gpus, instance_id):
         print("[%s] Created instance %s with %d GPU(s) of type %s in zone %s" % (aws_time,
             instance_id, num_gpus, gpu_type, zone))
 
-        logs[instance_id] = [(gpu_type, num_gpus), aws_time, -1]
-        logs2[aws_time] = [instance_id, 1]
+        logs[instance_id] = [(gpu_type, num_gpus), aws_time, -1] # [instance, start time, end time]
+        logs2[aws_time] = [instance_id, 1] # [instance id, running]
         persist_dict()
         print(logs)
         return [instance_id, True]
@@ -100,7 +100,7 @@ def monitor_spot_instance(zone, instance_id):
    
     if instance_id in logs: 
         logs[instance_id][-1] = aws_time
-        logs2[aws_time] = [instance_id, -1]
+        logs2[aws_time] = [instance_id, -1]  # [instance id, not running]
         persist_dict()
 
     print(logs)
@@ -157,7 +157,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
                 description='Get AWS spot instance availability')
     parser.add_argument('--zones', type=str, nargs='+',
-                        default=["us-east-1b", "us-east-1c"],
+                        default=["us-east-1b", "us-east-1c", "us-east-1d", "us-east-1a"],
                         help='AWS availability zones')
     parser.add_argument('--gpu_types', type=str, nargs='+',
                         default=["v100", "k80"],
