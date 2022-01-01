@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 
-MAX_INSTANCES = 10
+MAX_INSTANCES = 1
 instances = {}
 instance_types = {
     ("v100", 1): "p3.2xlarge",
@@ -41,15 +41,16 @@ def signal_handler(sig, frame):
 
 def launch_spot_instance(zone, gpu_type, num_gpus, instance_id):
     instance_type = instance_types[(gpu_type, num_gpus)]
-    with open("specification.json.template", 'r') as f1, open("specification.json", 'w') as f2:
+    with open("specification1.json.template", 'r') as f1, open("specification1.json", 'w') as f2:
         template = f1.read()
         specification_file = template % (instance_type, zone)
         f2.write(specification_file)
-    command = """aws ec2 request-spot-instances --instance-count 1 --type one-time --launch-specification file://specification.json"""
+    command = """aws ec2 request-spot-instances --instance-count 1 --type "persistent" --launch-specification file://specification1.json"""
     try:
         spot_instance_request_id = None
         print("[%s] Trying to create instance with %d GPU(s) of type %s in zone %s" % (
-            datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'), num_gpus, gpu_type, zone), file=sys.stderr)
+            datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
+            num_gpus, gpu_type, zone), file=sys.stderr)
         output = subprocess.check_output(command, shell=True).decode()
         return_obj = json.loads(output)
         spot_instance_request_id = return_obj["SpotInstanceRequests"][0]["SpotInstanceRequestId"]
@@ -91,7 +92,7 @@ def monitor_spot_instance(zone, instance_id):
             print("[%s] Instance %s running in zone %s" % (
                 datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'),
                 instance_id, zone))
-            return True
+            exit()
     except Exception as e:
         pass
     aws_time = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z')
@@ -124,9 +125,6 @@ def main(args):
     for zone in args.zones:
         for gpu_type in args.gpu_types:
             for num_gpus in args.all_num_gpus:
-                if (gpu_type, num_gpus) not in instance_types:
-                    continue
-
                 instance = [None, False]
                 instances[(zone, gpu_type, num_gpus)] = [instance] * MAX_INSTANCES
 
@@ -159,13 +157,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
                 description='Get AWS spot instance availability')
     parser.add_argument('--zones', type=str, nargs='+',
-                        default=["us-east-2b", "us-east-2c", "us-east-2d", "us-east-2a"],
+                        default=["us-east-1b", "us-east-1c", "us-east-1d", "us-east-1a"],
                         help='AWS availability zones')
     parser.add_argument('--gpu_types', type=str, nargs='+',
                         default=["v100", "k80"],
                         help='GPU types')
     parser.add_argument('--all_num_gpus', type=int, nargs='+',
-                        default=[1, 4, 8, 16],
+                        default=[1, 8],
                         help='Number of GPUs per instance')
     args = parser.parse_args()
 
