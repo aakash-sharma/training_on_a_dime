@@ -5,6 +5,9 @@ import json
 import subprocess
 import sys
 import time
+import os
+from shutil import copy
+
 
 MAX_INSTANCES = 10
 instances = {}
@@ -120,15 +123,26 @@ def delete_spot_instance(zone, instance_id):
         return
 
 def main(args):
-    global instances
-    for zone in args.zones:
-        for gpu_type in args.gpu_types:
-            for num_gpus in args.all_num_gpus:
-                if (gpu_type, num_gpus) not in instance_types:
-                    continue
 
-                instance = [None, False]
-                instances[(zone, gpu_type, num_gpus)] = [instance] * MAX_INSTANCES
+    work_dir = args.zone
+    zone = args.zone
+
+    exists = os.path.isdir(work_dir)
+
+    if not exists:
+        os.mkdir(work_dir)
+
+    copy('specification.json.template', work_dir + os.path.sep)
+    os.chdir(work_dir)
+
+    global instances
+    for gpu_type in args.gpu_types:
+        for num_gpus in args.all_num_gpus:
+            if (gpu_type, num_gpus) not in instance_types:
+                continue
+
+            instance = [None, False]
+            instances[(zone, gpu_type, num_gpus)] = [instance] * MAX_INSTANCES
 
     print(instances)
 
@@ -158,8 +172,8 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
                 description='Get AWS spot instance availability')
-    parser.add_argument('--zones', type=str, nargs='+',
-                        default=["us-east-2b", "us-east-2c", "us-east-2d", "us-east-2a"],
+    parser.add_argument('--zone', type=str,
+                        default=["us-east-1a"],
                         help='AWS availability zones')
     parser.add_argument('--gpu_types', type=str, nargs='+',
                         default=["v100", "k80"],
