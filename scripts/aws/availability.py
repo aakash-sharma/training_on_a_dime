@@ -42,6 +42,19 @@ def signal_handler(sig, frame):
     persist_dict()
     sys.exit(0)
 
+def signal_handler2(sig, frame):
+    global instances
+    # Clean up all instances when program is interrupted.
+    for (zone, gpu_type, num_gpus) in instances:
+        for instance in instances[(zone, gpu_type, num_gpus)]:
+            instance_id = instance[0]
+            if instance_id is not None:
+                delete_spot_instance(zone, instance_id)
+
+    logs2[datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z')] = [None, 0]
+    persist_dict()
+    sys.exit(0)
+
 def launch_spot_instance(zone, gpu_type, num_gpus, instance_id):
     instance_type = instance_types[(gpu_type, num_gpus)]
     with open("specification.json.template", 'r') as f1, open("specification.json", 'w') as f2:
@@ -184,4 +197,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler2)
     main(args)
