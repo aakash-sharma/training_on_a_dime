@@ -63,7 +63,7 @@ def launch_spot_instance(zone, gpu_type, num_gpus, sir_id):
         template = f1.read()
         specification_file = template % (instance_type, zone)
         f2.write(specification_file)
-    command = """aws ec2 request-spot-instances --instance-count 1 --type one-time --launch-specification file://specification.json"""
+    command = """aws ec2 request-spot-instances --instance-count 1 --type persistent --launch-specification file://specification.json"""
     try:
         if sir_id is None:
             print("[%s] Trying to create instance with %d GPU(s) of type %s in zone %s" % (
@@ -125,14 +125,21 @@ def monitor_spot_instance(zone, instance_id):
     print(logs)
     
     # Delete spot instance in case it exists.
-    delete_spot_instance(zone, instance_id)
+    delete_spot_instance(zone, None, instance_id)
     return False
 
 def delete_spot_instance(zone, sir_id, instance_id):
 
-    command = """aws ec2 cancel-spot-instance-requests --spot-instance-request-ids %s""" % (
+    if sir_id is not None:
+
+        command = """aws ec2 cancel-spot-instance-requests --spot-instance-request-ids %s""" % (
         sir_id)
-    subprocess.check_output(command, shell=True)
+        try:
+            subprocess.check_output(command, shell=True)
+            print("[%s] Successfully deleted spot instance request id %s" % (
+                datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'), sir_id))
+        except:
+            return
 
     if instance_id is not None:
         command = """aws ec2 terminate-instances --instance-ids %(instance_id)s""" % {
