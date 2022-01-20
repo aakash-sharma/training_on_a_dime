@@ -9,7 +9,7 @@ import os
 from shutil import copy
 
 
-MAX_INSTANCES = 3
+MAX_INSTANCES = 2
 instances = {}
 instance_types = {
     ("v100", 1): "p3.2xlarge",
@@ -71,12 +71,26 @@ def launch_spot_instance(zone, gpu_type, num_gpus, sir_id):
             output = subprocess.check_output(command, shell=True).decode()
             return_obj = json.loads(output)
             sir_id = return_obj["SpotInstanceRequests"][0]["SpotInstanceRequestId"]
+          #  time.sleep(60)
 
         command = """aws ec2 describe-spot-instance-requests --spot-instance-request-id %s""" % (
             sir_id)
         time.sleep(30)
-        print(sir_id)
         output = subprocess.check_output(command, shell=True).decode()
+
+        if "InvalidSpotInstanceRequestID" in output or "canceled before it was fulfilled" in output:
+            print("[%s] Sir request bad, trying to create instance with %d GPU(s) of type %s in zone %s" % (datetime.now().strftime('%Y-%m-%dT%H:%M:%S.000Z'), num_gpus, gpu_type, zone), file=sys.stderr)
+            command = """aws ec2 request-spot-instances --instance-count 1 --type persistent --launch-specification file://specification.json"""
+            output = subprocess.check_output(command, shell=True).decode()
+            return_obj = json.loads(output)
+            sir_id = return_obj["SpotInstanceRequests"][0]["SpotInstanceRequestId"]
+          #  time.sleep(60)
+
+            command = """aws ec2 describe-spot-instance-requests --spot-instance-request-id %s""" % (
+                sir_id)
+            time.sleep(30)
+            output = subprocess.check_output(command, shell=True).decode()
+
         return_obj = json.loads(output)
         instance_id = return_obj["SpotInstanceRequests"][0]["InstanceId"]
         print(instance_id)
